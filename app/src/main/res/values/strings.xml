@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">PracticeApp1</string>
+    <string name="action_settings">Settings</string>
+    <!-- Strings used for fragments for navigation -->
+    <string name="first_fragment_label">AvA Cell Site Measurements</string>
+    <string name="second_fragment_label">Second Fragment</string>
+    <string name="previous">Previous</string>
+    <string name="button_1">Start</string>
+    <string name="button_2">Pause</string>
+    <string name="button_3">Stop</string>
+
+    <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+    <string name="app_title">AvA Cell Site Measurements</string>
+    <string name="Heading_1">Select PHY-layer metrics</string>
+    <string name="rsrp">RSRP</string>
+    <string name="rsrq">RSRQ</string>
+    <string name="rssnr">RSSNR</string>
+    <string name="cqi">CQI</string>
+    <string name="dl_bandwidth">DL BW</string>
+
+    <string name="duration">Duration (secs)</string>
+    <string name="sampling_interval">Sampling interval (secs)</string>
+
+</resources>
