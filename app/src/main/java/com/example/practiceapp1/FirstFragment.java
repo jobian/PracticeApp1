@@ -46,10 +46,11 @@ public class FirstFragment extends Fragment {
     private LocationManager locationManager;
     OutputStreamWriter osw = null;
     File csv_file = null;
+    boolean _DEBUG_ = false;
     EditText duration, sampling_interval;
     Button start_button;
 
-    private static final String csvFileName = "sCell_" + System.currentTimeMillis() + ".csv";
+    private String csvFileName = null;
     private static final String TAG = "FirstFragment";
 
     @Override
@@ -113,16 +114,9 @@ public class FirstFragment extends Fragment {
     }
 
     public void collectMeasurements(View view, int duration_secs, int sample_interval_secs) {
-        List<CellInfo> cellInfoList = null;
         Context context = view.getContext().getApplicationContext();
+        csvFileName = "Cell_Data_" + System.currentTimeMillis() + ".csv";
         OutputStreamWriter osw = null;
-        try {
-            osw = new OutputStreamWriter(context.openFileOutput(csvFileName, 0));
-            osw.write("timestamp,rsrp,rsrq,rssnr,cqi,mcc,mnc,tac,pci,enbID,band" + "\n");
-        } catch (IOException fnfe) {
-            fnfe.printStackTrace();
-            return;
-        }
 
         telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
         if (telephonyManager == null) {
@@ -130,7 +124,75 @@ public class FirstFragment extends Fragment {
             return;
         }
 
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            List<CellSignalStrength> sigs = telephonyManager.getSignalStrength().getCellSignalStrengths();
+            List<CellInfo> cellInfoList = telephonyManager.getAllCellInfo();
+            List<CellSignalStrength> sig_list = null;
+            CellSignalStrengthLte siglte = null;
+            CellIdentityLte ltecell = null;
+            CellInfoLte infoLte = null;
+            CellInfo info = null;
+            long currTime = 0;
+            long interval_start = 0;
+            long endTime = 0;
+            String measurement = null;
+            boolean isServingCell;
+            int elapsed_time = 0;
+
+            if (_DEBUG_) { System.out.println("Number of cell sites: " + cellInfoList.size()); }
+
+            try {
+                if (_DEBUG_) { System.out.println("Writing out to file: " + csvFileName); }
+                osw = new OutputStreamWriter(context.openFileOutput(csvFileName, 0));
+                osw.write("timestamp,rsrp,rsrq,rssnr,cqi,mcc,mnc,tac,pci,enbID,bw_khz,isServingCell" + "\n");
+
+                currTime = interval_start = System.currentTimeMillis();
+                endTime = currTime + (duration_secs * 1000);
+                if (_DEBUG_) { System.out.println("Current: " + currTime + ", Next: " + interval_start + ", End: " + endTime); }
+
+                while (currTime <= endTime) {
+                    while (currTime < interval_start) {
+                        Thread.sleep(100); // sleep for 100 ms
+                        currTime = System.currentTimeMillis();
+                    }
+
+                    /****
+                     * COLLECT PASSIVE MEASUREMENTS
+                     */
+                    for (int i=0; i<cellInfoList.size(); i++) {
+                        if (!cellInfoList.get(i).getClass().toString().equals("class android.telephony.CellInfoLte")) {
+                            return;
+                        }
+
+                        infoLte = (CellInfoLte) cellInfoList.get(i);
+                        ltecell = infoLte.getCellIdentity();
+                        siglte = infoLte.getCellSignalStrength();
+                        //isServingCell = (infoLte.getCellConnectionStatus() == CellInfo.CONNECTION_PRIMARY_SERVING);
+                        isServingCell = ltecell.getMobileNetworkOperator() != null;
+                        if (_DEBUG_) { System.out.println("Evaluating cell #" + (i + 1) + ", MNO: " + ltecell.getMobileNetworkOperator()); }
+
+                        measurement = currTime + "," + siglte.getRsrp() + "," + siglte.getRsrq() + "," +
+                                siglte.getRssnr() + "," + siglte.getCqi() + "," + ltecell.getMccString() +
+                                "," + ltecell.getMncString() + "," + ltecell.getTac() + "," +
+                                ltecell.getPci() + "," + ltecell.getBandwidth() + "," + isServingCell;
+
+                        // format: timestamp,rsrp,rsrq,rssnr,cqi,mcc,mnc,tac,pci,enbID,bw_khz,isServingCell
+                        if (_DEBUG_) { System.out.println("CSV write: " + measurement); }
+
+                        osw.write(measurement + "\n");
+                    }
+                    interval_start += (sample_interval_secs*1000);
+                    currTime = System.currentTimeMillis();
+                    if (_DEBUG_) { System.out.println("Current: " + currTime + ", Next: " + interval_start + ", End: " + endTime); }
+                }
+                osw.close();
+                Log.i(TAG, "EXITING. CLOSING FILE.");
+            } catch (Exception e) {
+                e.printStackTrace();
+                return;
+            }
+        }
+        else {
             // TODO: Consider calling
             //    ActivityCompat#requestPermissions
             // here to request the missing permissions, and then overriding
@@ -138,86 +200,7 @@ public class FirstFragment extends Fragment {
             //                                          int[] grantResults)
             // to handle the case where the user grants the permission. See the documentation
             // for ActivityCompat#requestPermissions for more details.
-            List<CellSignalStrength> sigs = telephonyManager.getSignalStrength().getCellSignalStrengths();
-            //cellInfoList = telephonyManager.getAllCellInfo();
-            List<CellSignalStrength> sig_list = null;
-            CellSignalStrengthLte siglte = null;
-            CellIdentityLte ltecell = null;
-            int elapsed_time = 0;
-            int mcc = context.getResources().getConfiguration().mcc;
-            int mnc = context.getResources().getConfiguration().mnc;
-            System.out.println("MNO: " + telephonyManager.getNetworkOperatorName() + ", mcc=" + mcc + ", mnc=" + mnc);
-
-            try {
-                if (true) {
-                    if (sigs.get(0).getClass().toString().equals("class android.telephony.CellSignalStrengthLte")) {
-                        //ltecell = (CellIdentityLte)((CellInfoLte) cellInfoList.get(0)).getCellIdentity();
-                        siglte = (CellSignalStrengthLte) sigs.get(0);
-                        while (elapsed_time <= duration_secs) {
-                            // format: timestamp,rsrp,rsrq,rssnr,cqi,mcc,mnc,tac,pci,enbID,band
-                            System.out.println("CSV write: " + System.currentTimeMillis() + "," +
-                                    siglte.getRsrp() + "," + siglte.getRsrq() + "," +
-                                    siglte.getRssnr() + "," + siglte.getCqi() + "," +
-                                    mcc + "," + mnc + "," + "tac" + "," + "pci" + "  samp_int=" + sample_interval_secs);
-                            //ltecell.getTac() + "," + ltecell.getPci());
-
-                            osw.write(System.currentTimeMillis() + "," + siglte.getRsrp() + "," +
-                                    siglte.getRsrq() + "," + siglte.getRssnr() + "," + siglte.getCqi() +
-                                    "," + mcc + "," + mnc + "\n");
-
-                            Thread.sleep(sample_interval_secs * 1000);
-                            elapsed_time += sample_interval_secs;
-                        }
-                    }
-                }
-                osw.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-                return;
-            }
         }
-        /*
-        cellInfoList = telephonyManager.getAllCellInfo();
-        if (cellInfoList == null) {
-            Log.i(TAG, "CellInfoList is NULL...");
-        } else if (cellInfoList.size() == 0) {
-            Log.i(TAG, "CellInfoList is EMPTY...");
-        }
-
-        if (cellInfoList == null) {
-            tv.setText("getAllCellInfo()返回null");
-        } else if (cellInfoList.size() == 0) {
-            tv.setText("基站列表为空");
-        } else {
-            int cellNumber = cellInfoList.size();
-            BaseStation main_BS = bindData(cellInfoList.get(0));
-            tv.setText("获取到" + cellNumber + "个基站, \n主基站信息：\n" + main_BS.toString());
-            for (CellInfo cellInfo : cellInfoList) {
-                BaseStation bs = bindData(cellInfo);
-                Log.i(TAG, bs.toString());
-            }
-        }
-
-        CellInfoLte cellInfo = (CellInfoLte) cellInfoList.get(0);
-        CellIdentityLte cellID = cellInfo.getCellIdentity();
-        int dl_bw = cellID.getBandwidth();
-        int earfcn = cellID.getEarfcn();
-        int[] bands = cellID.getBands();
-        String mcc_mnc = cellID.getMccString() + "-" + cellID.getMncString();
-        String mno = cellID.getMobileNetworkOperator();
-        int pci = cellID.getPci();
-        int tac = cellID.getTac();
-        System.out.println("BW: " + dl_bw);
-        System.out.println("EARFCN: " + earfcn);
-        System.out.println("MNO: " + mno);
-        System.out.println("PCI: " + pci);
-        System.out.println("TAC: " + tac);
-        Toast myToast = Toast.makeText(getActivity(), tmp_string + ", " + mcc_mnc, Toast.LENGTH_SHORT);
-        myToast.show();
-
-        Set<String> plmns = cellID.getAdditionalPlmns();
-        System.out.println("Num of PLMNs: " + plmns.size());
-        */
     }
     private LocationListener locationListener = new LocationListener() {
         @Override
@@ -229,17 +212,14 @@ public class FirstFragment extends Fragment {
 
         @Override
         public void onStatusChanged(String s, int i, Bundle bundle) {
-
         }
 
         @Override
         public void onProviderEnabled(String s) {
-
         }
 
         @Override
         public void onProviderDisabled(String s) {
-
         }
     };
 
