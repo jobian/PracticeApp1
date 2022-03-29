@@ -2,12 +2,18 @@ package com.example.practiceapp1;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.PorterDuff;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.NetworkCapabilities;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,6 +36,7 @@ import android.telephony.*;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -45,8 +52,7 @@ public class FirstFragment extends Fragment {
     private TelephonyManager telephonyManager;
     private LocationManager locationManager;
     OutputStreamWriter osw = null;
-    File csv_file = null;
-    boolean _DEBUG_ = false;
+    boolean _DEBUG_ = true;
     EditText duration, sampling_interval;
     Button start_button;
 
@@ -93,16 +99,33 @@ public class FirstFragment extends Fragment {
         view.findViewById(R.id.button_2).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Toast myToast = Toast.makeText(getActivity(), "Click Start first", Toast.LENGTH_SHORT);
-                myToast.show();
+                //Toast myToast = Toast.makeText(getActivity(), "Click Start first", Toast.LENGTH_SHORT);
+                //myToast.show();
+                NavHostFragment.findNavController(FirstFragment.this)
+                        .navigate(R.id.action_FirstFragment_to_SecondFragment);
             }
         });
 
         view.findViewById(R.id.button_3).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Toast myToast = Toast.makeText(getActivity(), "Click Start first", Toast.LENGTH_SHORT);
-                myToast.show();
+                //Toast myToast = Toast.makeText(getActivity(), "Click Start first", Toast.LENGTH_SHORT);
+                //myToast.show();
+                Context context = view.getContext().getApplicationContext();
+                String[] files = context.fileList();
+                System.out.println("Num files: " + files.length);
+                File csvFile;
+
+                for (int i=0; i<files.length; i++) {
+                    if (files[i].endsWith(".csv")) {
+                        //csvFile = new File(files[i]);
+                        if (context.deleteFile(files[i])) {
+                            System.out.println("Deleting file #" + (i + 1) + ": " + files[i]);
+                        } else {
+                            System.out.println("Failed to delete file #" + (i + 1) + ": " + files[i]);
+                        }
+                    }
+                }
             }
         });
     }
@@ -115,7 +138,12 @@ public class FirstFragment extends Fragment {
 
     public void collectMeasurements(View view, int duration_secs, int sample_interval_secs) {
         Context context = view.getContext().getApplicationContext();
+        File appFilesDirectory = context.getExternalFilesDir(null);
+        System.out.println("External storage state: " + Environment.getExternalStorageState());
         csvFileName = "Cell_Data_" + System.currentTimeMillis() + ".csv";
+        File csvFile = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOCUMENTS), csvFileName);
+
         OutputStreamWriter osw = null;
 
         telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
@@ -143,7 +171,8 @@ public class FirstFragment extends Fragment {
 
             try {
                 if (_DEBUG_) { System.out.println("Writing out to file: " + csvFileName); }
-                osw = new OutputStreamWriter(context.openFileOutput(csvFileName, 0));
+                //osw = new OutputStreamWriter(context.openFileOutput(csvFileName, 0));
+                osw = new OutputStreamWriter(new FileOutputStream(csvFile));
                 osw.write("timestamp,rsrp,rsrq,rssnr,cqi,mcc,mnc,tac,pci,enbID,bw_khz,isServingCell" + "\n");
 
                 currTime = interval_start = System.currentTimeMillis();
@@ -222,5 +251,24 @@ public class FirstFragment extends Fragment {
         public void onProviderDisabled(String s) {
         }
     };
+
+    public void sendEmail() {
+        try {
+            String email = "dldavis@vt.edu";
+            String subject = "Data file: " + csvFileName;
+            String message = "See attached CSV file.";
+            Uri URI = null;
+            final Intent emailIntent = new Intent(android.content.Intent.ACTION_SEND);
+            emailIntent.setType("plain/text");
+            emailIntent.putExtra(android.content.Intent.EXTRA_EMAIL, new String[]{email});
+            emailIntent.putExtra(android.content.Intent.EXTRA_SUBJECT, subject);
+            if (URI != null) {
+                emailIntent.putExtra(Intent.EXTRA_STREAM, URI);
+            }
+            emailIntent.putExtra(android.content.Intent.EXTRA_TEXT, message);
+            this.startActivity(Intent.createChooser(emailIntent, "Sending email..."));
+        } catch (Throwable t) {
+        }
+    }
 
 }
