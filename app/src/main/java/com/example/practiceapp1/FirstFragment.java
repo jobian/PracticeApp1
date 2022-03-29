@@ -142,7 +142,7 @@ public class FirstFragment extends Fragment {
         System.out.println("External storage state: " + Environment.getExternalStorageState());
         csvFileName = "Cell_Data_" + System.currentTimeMillis() + ".csv";
         File csvFile = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOCUMENTS), csvFileName);
+                Environment.DIRECTORY_DOWNLOADS), csvFileName);
 
         OutputStreamWriter osw = null;
 
@@ -166,7 +166,15 @@ public class FirstFragment extends Fragment {
             String measurement = null;
             boolean isServingCell;
             int elapsed_time = 0;
-
+            NetworkCapabilities nc = null;
+            /*
+            try {
+                nc = connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+                return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING);
+            } catch (Exception e) {
+                return networkInfo.isRoaming();
+            }
+            */
             if (_DEBUG_) { System.out.println("Number of cell sites: " + cellInfoList.size()); }
 
             try {
@@ -203,7 +211,7 @@ public class FirstFragment extends Fragment {
                         measurement = currTime + "," + siglte.getRsrp() + "," + siglte.getRsrq() + "," +
                                 siglte.getRssnr() + "," + siglte.getCqi() + "," + ltecell.getMccString() +
                                 "," + ltecell.getMncString() + "," + ltecell.getTac() + "," +
-                                ltecell.getPci() + "," + ltecell.getBandwidth() + "," + isServingCell;
+                                ltecell.getPci() + "," + ltecell.getCi() + "," + ltecell.getBandwidth() + "," + isServingCell;
 
                         // format: timestamp,rsrp,rsrq,rssnr,cqi,mcc,mnc,tac,pci,enbID,bw_khz,isServingCell
                         if (_DEBUG_) { System.out.println("CSV write: " + measurement); }
